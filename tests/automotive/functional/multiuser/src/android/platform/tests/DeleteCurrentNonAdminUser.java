@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-package android.platform.scenario.multiuser;
+package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
+import android.os.SystemClock;
 import android.content.pm.UserInfo;
 import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoProfileHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.scenario.multiuser.MultiUserConstants;
 import androidx.test.runner.AndroidJUnit4;
 import org.junit.After;
 import org.junit.Before;
@@ -34,30 +36,26 @@ import org.junit.runner.RunWith;
 
 /**
  * This test will create user through API and delete the same user from UI
- *
- * <p>It should be running under user 0, otherwise instrumentation may be killed after user
- * switched.
+ * <p> Set system property to run MU test: adb shell setprop fw.stop_bg_users_on_switch 0
  */
 @RunWith(AndroidJUnit4.class)
 public class DeleteCurrentNonAdminUser {
 
+    private static final String userName = MultiUserConstants.SECONDARY_USER_NAME;
+    private static final int WAIT_TIME = 10000;
     private final MultiUserHelper mMultiUserHelper = MultiUserHelper.getInstance();
-    private HelperAccessor<IAutoProfileHelper> mProfilesHelper;
+    private HelperAccessor<IAutoUserHelper> mUsersHelper;
     private HelperAccessor<IAutoSettingHelper> mSettingHelper;
+    private int mTargetUserId;
 
     public DeleteCurrentNonAdminUser() {
-        mProfilesHelper = new HelperAccessor<>(IAutoProfileHelper.class);
+        mUsersHelper = new HelperAccessor<>(IAutoUserHelper.class);
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
     @BeforeClass
     public static void exitSuw() {
         AutoUtility.exitSuw();
-    }
-
-    @Before
-    public void openAccountsFacet() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
     }
 
     @After
@@ -67,16 +65,20 @@ public class DeleteCurrentNonAdminUser {
 
     @Test
     public void testRemoveUserSelf() throws Exception {
-        // add new user
         UserInfo initialUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        mProfilesHelper.get().addProfile();
-        // switched to new user and user deleted self
+        // add new user
+        mTargetUserId = mMultiUserHelper.createUser(userName, false);
+        SystemClock.sleep(WAIT_TIME);
+        // switch to new user
+        mMultiUserHelper.switchAndWaitForStable(
+            mTargetUserId, MultiUserConstants.WAIT_FOR_IDLE_TIME_MS);
         UserInfo newUser = mMultiUserHelper.getCurrentForegroundUserInfo();
+        // user deleted self
         mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
-        mProfilesHelper.get().deleteCurrentProfile();
+        mUsersHelper.get().deleteCurrentUser();
         // goes to guest user, switch back to initial user
-        UserInfo guestUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        mProfilesHelper.get().switchProfile(guestUser.name, initialUser.name);
+        mMultiUserHelper.switchAndWaitForStable(
+            initialUser.id, MultiUserConstants.WAIT_FOR_IDLE_TIME_MS);
         // verify that user is deleted
         assertTrue(mMultiUserHelper.getUserByName(newUser.name) == null);
     }

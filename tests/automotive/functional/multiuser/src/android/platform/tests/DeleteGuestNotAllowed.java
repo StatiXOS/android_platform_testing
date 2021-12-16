@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package android.platform.scenario.multiuser;
+package android.platform.tests;
 
-import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.assertFalse;
 
 import android.content.pm.UserInfo;
 import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoProfileHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.scenario.multiuser.MultiUserConstants;
 import androidx.test.runner.AndroidJUnit4;
 import org.junit.After;
 import org.junit.Before;
@@ -34,19 +35,16 @@ import org.junit.runner.RunWith;
 
 /**
  * This test will create user through API and delete the same user from UI
- *
- * <p>It should be running under user 0, otherwise instrumentation may be killed after user
- * switched.
  */
 @RunWith(AndroidJUnit4.class)
-public class DeleteCurrentLastAdminUser {
+public class DeleteGuestNotAllowed {
 
-    private final MultiUserHelper mMultiUserHelper = MultiUserHelper.getInstance();
-    private HelperAccessor<IAutoProfileHelper> mProfilesHelper;
+    private static final String guestUser = MultiUserConstants.GUEST_NAME;
+    private HelperAccessor<IAutoUserHelper> mUsersHelper;
     private HelperAccessor<IAutoSettingHelper> mSettingHelper;
 
-    public DeleteCurrentLastAdminUser() {
-        mProfilesHelper = new HelperAccessor<>(IAutoProfileHelper.class);
+    public DeleteGuestNotAllowed() {
+        mUsersHelper = new HelperAccessor<>(IAutoUserHelper.class);
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
@@ -66,13 +64,8 @@ public class DeleteCurrentLastAdminUser {
     }
 
     @Test
-    public void testRemoveUserSelf() throws Exception {
-        // add new user
-        UserInfo initialUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        // user deleted self
-        mProfilesHelper.get().deleteCurrentProfile();
-        UserInfo newUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        // verify that user is deleted
-        assertTrue((initialUser.id != newUser.id) && (initialUser.name.equals(newUser.name)));
+    public void testDeleteGuestNotAllowed() throws Exception {
+        // verify that guest user cannot be seen and deleted from list of profiles
+        assertFalse(mUsersHelper.get().isUserPresent(guestUser));
     }
 }

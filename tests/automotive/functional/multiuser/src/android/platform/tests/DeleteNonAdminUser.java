@@ -14,40 +14,39 @@
  * limitations under the License.
  */
 
-package android.platform.scenario.multiuser;
+package android.platform.tests;
 
-import static junit.framework.Assert.assertTrue;
+import static junit.framework.Assert.assertFalse;
 
-import android.content.pm.UserInfo;
+import android.os.SystemClock;
 import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoProfileHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.scenario.multiuser.MultiUserConstants;
 import androidx.test.runner.AndroidJUnit4;
 import org.junit.After;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
  * This test will create user through API and delete the same user from UI
- *
- * <p>It should be running under user 0, otherwise instrumentation may be killed after user
- * switched.
  */
 @RunWith(AndroidJUnit4.class)
-public class SwitchToGuestFromNonAdmin {
+public class DeleteNonAdminUser {
 
-    private static final String guestUser = MultiUserConstants.GUEST_NAME;
+    private static final String userName = MultiUserConstants.SECONDARY_USER_NAME;
+    private static final int WAIT_TIME = 10000;
     private final MultiUserHelper mMultiUserHelper = MultiUserHelper.getInstance();
-    private HelperAccessor<IAutoProfileHelper> mProfilesHelper;
+    private HelperAccessor<IAutoUserHelper> mUsersHelper;
     private HelperAccessor<IAutoSettingHelper> mSettingHelper;
+    private int mTargetUserId;
 
-    public SwitchToGuestFromNonAdmin() {
-        mProfilesHelper = new HelperAccessor<>(IAutoProfileHelper.class);
+    public DeleteNonAdminUser() {
+        mUsersHelper = new HelperAccessor<>(IAutoUserHelper.class);
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
@@ -56,30 +55,20 @@ public class SwitchToGuestFromNonAdmin {
         AutoUtility.exitSuw();
     }
 
-    @Before
-    public void openAccountsFacet() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
-    }
-
     @After
     public void goBackToHomeScreen() {
         mSettingHelper.get().goBackToSettingsScreen();
     }
 
     @Test
-    public void testSwitchToGuest() throws Exception {
-        // add new user
-        UserInfo initialUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        mProfilesHelper.get().addProfile();
-        // switched to new user account
-        UserInfo newUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        // switch to guest from new user
-        mProfilesHelper.get().switchProfile(newUser.name, guestUser);
-        // verify the user switch
-        UserInfo currentUser = mMultiUserHelper.getCurrentForegroundUserInfo();
-        assertTrue(currentUser.name.equals(guestUser));
-        // switch to initial user and delete new user before terminating the test
-        mProfilesHelper.get().switchProfile(currentUser.name, initialUser.name);
-        mMultiUserHelper.removeUser(newUser);
+    public void testRemoveUser() throws Exception {
+        // create new user
+        mTargetUserId = mMultiUserHelper.createUser(userName, false);
+        SystemClock.sleep(WAIT_TIME);
+        // make the new user admin and delete new user
+        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+        mUsersHelper.get().deleteUser(userName);
+        // verify new user was deleted
+        assertFalse(mUsersHelper.get().isUserPresent(userName));
     }
 }
